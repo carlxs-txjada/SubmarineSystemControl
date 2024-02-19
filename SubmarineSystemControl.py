@@ -1,4 +1,4 @@
-import pygame
+import pygame as pg
 from pygame.locals import *
 import sys
 
@@ -8,6 +8,9 @@ seaLevel = 80
 SubmarineImagePosYLim = 500
 SubmarineImagePosYInit = seaLevel
 
+submarineLeftLimit = 0
+submarineRightLimit = 700
+
 gravity = 9.8
 density = 1000
 volume = 1
@@ -16,19 +19,29 @@ constantB = 250
 
 pushingForce = - (density * gravity * volume)
 
+
 class Engine:
-    def __init__(self, strenght, horizontalDirection):
-        self.strenght = strenght
+    def __init__(self, horsepower, horizontalDirection):
+        self.strenght = 0  # [-1, 0, 1]
+        self.horsepower = horsepower
         self.horizontalDirection = horizontalDirection
 
-        def getStrength(self):
-            return self.strenght
+    def createDefault(self):
+        self.strenght = 0
+        self.horizontalDirection = ''
+        return Engine
 
-        def moveLeftRight(self, horizontalDirection):
-            if horizontalDirection == 'right':
-                pass
-            elif horizontalDirection == 'left':
-                pass
+    def brake(self):
+        pass
+
+    def moveLeftOrRight(self, horizontalDirection):
+        if horizontalDirection == 'right':
+            self.strenght = 1
+        elif horizontalDirection == 'left':
+            self.strenght = -1
+
+    def brake(self):
+        self.strenght = 0
 
 class Reservoir:
 
@@ -37,6 +50,14 @@ class Reservoir:
         self.valveFlow = valveFlow
         self.maxCapactity = maxCapactity
         self.fluitsoPump = fluitsoPump
+
+    def createDefault(self):
+        self.actualLevel = 0
+        self.valveFlow = 0
+        self.maxCapactity = 0
+        self.fluitsoPump = 0
+
+        return Reservoir
 
     def pumpingAirWater(self, fluitsoPump):
         if fluitsoPump == 'air':
@@ -51,18 +72,22 @@ class Reservoir:
             else:
                 self.actualLevel = self.maxCapactity
 
-    # def turn_on_turbine(self, direction):
-
 
 class Submarine:
 
-    def __init__(self, tank, mass, actualVelocityY, actualVelocityX, posY, posX, engine):
+    def __init__(self, mass, actualVelocityY, actualVelocityX, posY, posX):
         self.posY = posY
         self.posX = posX
         self.mass = mass
         self.actualVelocityY = actualVelocityY
         self.actualVelocityX = actualVelocityX
+        self.tank = Reservoir.createDefault(self)
+        self.engine = Engine.createDefault(self)
+
+    def createTank(self, tank):
         self.tank = tank
+
+    def createEngine(self, engine):
         self.engine = engine
 
     def calculateMass(self):
@@ -71,39 +96,49 @@ class Submarine:
     def calculateVelocityY(self):
         self.actualVelocityY = ts * (
                 (pushingForce / self.mass) + gravity - (
-                    (constantB * self.actualVelocityY) / self.mass)) + self.actualVelocityY
+                (constantB * self.actualVelocityY) / self.mass)) + self.actualVelocityY
 
     def calculateVelocityX(self):
         self.actualVelocityX = ts * ((-constantB * self.actualVelocityX / self.mass) + (
-                    self.engine / self.mass)) + self.actualVelocityY
+            (self.engine.horsepower * self.engine.strenght) / self.mass)) + self.actualVelocityY
 
     def calculatePosition(self):
-        self.posY = self.posY + self.actualVelocityY
+        Submarine.calculatePositionX(self)
+        Submarine.calculatePositionY(self)
 
+
+
+    def calculatePositionX(self):
+        self.posX = self.posX + self.actualVelocityX
+        if self.posX >= submarineRightLimit:
+            self.posX = submarineLeftLimit
+        elif self.posX <= submarineLeftLimit:
+            self.posX = submarineRightLimit
+
+    def calculatePositionY(self):
+        self.posY = self.posY + self.actualVelocityY
         if self.posY > SubmarineImagePosYLim:
             self.posY = SubmarineImagePosYLim
         if self.posY < seaLevel:
             self.posY = seaLevel
 
-        return self.posY
-
 
 def main():
-    pygame.init()
-    tank1 = Reservoir(1005, 2, 50000, 'air')
-    engine1 = Engine(1000, 'None')
+    pg.init()
+    submarine1 = Submarine(2, 2, 0, 150, 50)
+    submarine1.createTank(Reservoir(1005, 2, 50000, 'air'))
+    submarine1.createEngine(Engine(150, 'None'))
 
-    submarine1 = Submarine(tank1, 2, 2, 0, 150, 50, engine1)
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-    pygame.display.set_caption("Submarine game")
+    pg.display.set_caption("Submarine game")
 
-    background_image = pygame.image.load("mar.jpg").convert()
-    submarine_image = pygame.image.load("sub.jpg").convert_alpha()
+    background_image = pg.image.load("mar.jpg").convert()
+    submarine_image = pg.image.load("sub.jpg").convert_alpha()
 
     screen.blit(submarine_image, (submarine1.posX, SubmarineImagePosYInit))
     screen.blit(background_image, (0, 0))
-    pygame.display.flip()
+    pg.display.flip()
 
     while True:
         submarine1.calculateVelocityY()
@@ -113,19 +148,37 @@ def main():
         screen.blit(background_image, (0, 0))
         screen.blit(submarine_image, (submarine1.posX, submarine1.posY))
 
-        pygame.display.flip()
+        pg.display.flip()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
                 sys.exit()
 
-            elif event.type == pygame.KEYDOWN:
+            elif event.type == pg.KEYDOWN:
+
+                # Movimiento vertical
                 if event.key == K_UP:
-                    tank1.pumpingAirWater('air')
+                    submarine1.tank.pumpingAirWater('air')
                 elif event.key == K_DOWN:
-                    tank1.pumpingAirWater('water')
+                    submarine1.tank.pumpingAirWater('water')
+
+                # Movimiento horizontal
                 if event.key == K_LEFT:
-                    tank1.pumpingAirWater('')
+                    submarine1.calculateVelocityX()
+                    submarine1.engine.moveLeftOrRight('left')
+                elif event.key == K_RIGHT:
+                    submarine1.calculateVelocityX()
+                    submarine1.engine.moveLeftOrRight("right")
+                elif event.key is not K_LEFT or event.key is not K_RIGHT:
+                    submarine1.calculateVelocityX()
+                    submarine1.engine.brake()
+
+                # Movimiento estático
+                if event.key == K_SPACE:
+                    pass
+
+                # Movimiento teledirigido
+                # $pygame.mouse.get_pos()
 
         submarine1.calculateMass()
 
