@@ -1,5 +1,6 @@
 import pygame as pg
 from pygame.locals import *
+from math import sqrt
 import sys
 
 SCREEN_WIDTH = 1000
@@ -14,7 +15,7 @@ submarineRightLimit = 700
 gravity = 9.8
 density = 1000
 volume = 1
-ts = 1
+ts = 0.05
 constantB = 250
 
 pushingForce = - (density * gravity * volume)
@@ -31,17 +32,23 @@ class Engine:
         self.horizontalDirection = ''
         return Engine
 
-    def brake(self):
-        pass
+    def stop(self):
+        self.strenght = 0
 
     def moveLeftOrRight(self, horizontalDirection):
+        self.horizontalDirection = horizontalDirection
         if horizontalDirection == 'right':
             self.strenght = 1
         elif horizontalDirection == 'left':
             self.strenght = -1
+        elif horizontalDirection == "brake":
+            self.strenght = self.strenght * 0.999
 
-    def brake(self):
-        self.strenght = 0
+        return self.strenght
+
+    def getStrenghtDirection(self):
+        return self.moveLeftOrRight(self.horizontalDirection)
+
 
 class Reservoir:
 
@@ -65,12 +72,16 @@ class Reservoir:
                 self.actualLevel = self.actualLevel - self.valveFlow
             else:
                 self.actualLevel = 0
-
-        if fluitsoPump == 'water':
+        elif fluitsoPump == 'water':
             if self.actualLevel < self.maxCapactity:
                 self.actualLevel = self.actualLevel + self.valveFlow
             else:
                 self.actualLevel = self.maxCapactity
+        elif fluitsoPump == 'fullAir':
+            self.actualLevel = 0
+        elif fluitsoPump == 'fullWater':
+            self.fluitsoPump = self.maxCapactity
+
 
 
 class Submarine:
@@ -100,13 +111,11 @@ class Submarine:
 
     def calculateVelocityX(self):
         self.actualVelocityX = ts * ((-constantB * self.actualVelocityX / self.mass) + (
-            (self.engine.horsepower * self.engine.strenght) / self.mass)) + self.actualVelocityY
+                (self.engine.horsepower * self.engine.getStrenghtDirection()) / self.mass)) + self.actualVelocityX
 
     def calculatePosition(self):
         Submarine.calculatePositionX(self)
         Submarine.calculatePositionY(self)
-
-
 
     def calculatePositionX(self):
         self.posX = self.posX + self.actualVelocityX
@@ -119,15 +128,35 @@ class Submarine:
         self.posY = self.posY + self.actualVelocityY
         if self.posY > SubmarineImagePosYLim:
             self.posY = SubmarineImagePosYLim
-        if self.posY < seaLevel:
+        elif self.posY < seaLevel:
             self.posY = seaLevel
+            # self.tank.pumpingAirWater('air')
 
+    def goToCursorCoords(self, coordX, coordY):
+        if self.posX < coordX:
+            self.engine.moveLeftOrRight('right')
+        else:
+            self.engine.moveLeftOrRight('left')
+        self.calculateVelocityX()
+
+        for _ in range(19):
+            if self.posY > coordY:
+                self.tank.pumpingAirWater('fullWater')
+            else:
+                self.tank.pumpingAirWater('fullAir')
+            self.calculateVelocityY()
+            self.calculatePosition()
+
+        return self.getCoords()
+
+    def getCoords(self):
+        return [self.posX, self.posY]
 
 def main():
     pg.init()
     submarine1 = Submarine(2, 2, 0, 150, 50)
     submarine1.createTank(Reservoir(1005, 2, 50000, 'air'))
-    submarine1.createEngine(Engine(150, 'None'))
+    submarine1.createEngine(Engine(20, 'None'))
 
     screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -135,6 +164,7 @@ def main():
 
     background_image = pg.image.load("mar.jpg").convert()
     submarine_image = pg.image.load("sub.jpg").convert_alpha()
+    #torpedo_image = pg.image.load("torpedo.png").convert_alpha()
 
     screen.blit(submarine_image, (submarine1.posX, SubmarineImagePosYInit))
     screen.blit(background_image, (0, 0))
@@ -142,8 +172,10 @@ def main():
 
     while True:
         submarine1.calculateVelocityY()
+        submarine1.calculateVelocityX()
         submarine1.calculatePosition()
-        print(submarine1.actualVelocityY)
+        # print(submarine1.actualVelocityX)
+        # print(pg.mouse.)
 
         screen.blit(background_image, (0, 0))
         screen.blit(submarine_image, (submarine1.posX, submarine1.posY))
@@ -155,7 +187,6 @@ def main():
                 sys.exit()
 
             elif event.type == pg.KEYDOWN:
-
                 # Movimiento vertical
                 if event.key == K_UP:
                     submarine1.tank.pumpingAirWater('air')
@@ -164,20 +195,32 @@ def main():
 
                 # Movimiento horizontal
                 if event.key == K_LEFT:
-                    submarine1.calculateVelocityX()
+                    submarine1.engine.strength = 0
+                    # submarine1.calculateVelocityX()
                     submarine1.engine.moveLeftOrRight('left')
                 elif event.key == K_RIGHT:
-                    submarine1.calculateVelocityX()
+                    # submarine1.calculateVelocityX()
+                    submarine1.engine.strength = 0
                     submarine1.engine.moveLeftOrRight("right")
-                elif event.key is not K_LEFT or event.key is not K_RIGHT:
-                    submarine1.calculateVelocityX()
-                    submarine1.engine.brake()
-
                 # Movimiento estático
-                if event.key == K_SPACE:
-                    pass
+                elif event.key == K_SPACE:
+                    submarine1.engine.moveLeftOrRight('brake')
+                elif event.key == K_x:
+                    submarine1.actualVelocityY = 0
+            # Movimiento teledirigido
+            if event.type == pg.MOUSEBUTTONDOWN:
+                coords = pg.mouse.get_pos()
+                submarineCoords = submarine1.getCoords()
+                submarine1.actualVelocityY = 0
+                while (int(sqrt(coords[0])) != int(sqrt(submarineCoords[0]))) or (
+                        int(sqrt(coords[1])) != int(sqrt(submarineCoords[1]))):
+                    submarineCoords = submarine1.goToCursorCoords(coords[0], coords[1])
 
-                # Movimiento teledirigido
+                    screen.blit(background_image, (0, 0))
+                    screen.blit(submarine_image, (submarine1.posX, submarine1.posY))
+
+                    pg.display.flip()
+
                 # $pygame.mouse.get_pos()
 
         submarine1.calculateMass()
