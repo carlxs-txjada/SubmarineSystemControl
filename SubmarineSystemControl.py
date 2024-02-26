@@ -9,7 +9,7 @@ import sys
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
-seaLevel = 80
+seaLevel = 50
 SubmarineImagePosYLim = 500
 SubmarineImagePosYInit = seaLevel
 
@@ -104,23 +104,23 @@ class Misille:
         self.mass = 0.1
         self.volume = 0.1
         self.strenght = 0
-        self.pushingForceX = self.power * cos(0.785398)
-        self.pushingForceY = self.power * sin(0.785398)
+        self.pushingForceX = self.power * cos(0)
+        self.pushingForceY = self.power * sin(0) * (density * gravity * self.volume)
         self.actualPosX = actualPos[0]
         self.actualPosY = actualPos[1]
         self.actualVelocityY = 0
         self.actualVelocityX = 0
-        self.constantC = constantB / 35
+        self.constantC = constantB / 15
 
     def calculateVelocityX(self):
         # self.actualVelocityX = 1
-        self.actualVelocityX = self.strenght * (
-                    self.pushingForceX - self.strenght * self.constantC * self.actualVelocityX) * ts / self.mass
+        self.actualVelocityX = self.strenght * ((
+                    self.pushingForceX - self.constantC * abs(self.actualVelocityX)) * ts / self.mass + abs(self.actualVelocityX))
 
     def calculevelocityY(self):
         # self.actualVelocityY = 1
         self.actualVelocityY = (
-                                           gravity * self.mass + self.pushingForceY - self.constantC * self.actualVelocityX) * ts / self.mass
+                        gravity * self.mass + self.pushingForceY - self.constantC * abs(self.actualVelocityY)) * ts / self.mass + self.actualVelocityY
 
     def calculePosition(self):
         self.calculePositionX()
@@ -131,17 +131,19 @@ class Misille:
 
     def calculePositionX(self):
         self.actualPosX += self.actualVelocityX
-        if self.actualPosX >= submarineRightLimit:
+        """if self.actualPosX >= submarineRightLimit:
             self.actualPosX = submarineLeftLimit
         elif self.actualPosX <= submarineLeftLimit:
-            self.actualPosX = submarineRightLimit
+            self.actualPosX = submarineRightLimit"""
 
     def setCoords(self, coords):
-        self.actualPosX = coords[0]
-        self.actualPosY = coords[1]
+        self.actualPosX = coords[0] + 50
+        self.actualPosY = coords[1] + 50
 
     def isMissileCrashed(self):
         if self.actualPosY > SubmarineImagePosYLim:
+            return True
+        elif self.actualPosX < submarineLeftLimit or self.actualPosX > submarineRightLimit:
             return True
 
 
@@ -266,6 +268,7 @@ def main():
     screen.blit(originalMissileImage[0], (200, 200))
     screen.blit(background_image, (0, 0))
     pg.display.flip()
+    whileCounter = 0
 
     while True:
         submarine1.calculateVelocityY()
@@ -280,12 +283,21 @@ def main():
             missileImage = originalMissileImage
 
         isBoom = submarine1.missile.isMissileCrashed()
+        #pg.draw.circle(background_image, (255, 0, 0), (submarine1.missile.actualPosX, submarine1.missile.actualPosY), 1)
         if isMissileEnabled and not isBoom:
             missileCurrentFrame = 0
             missileImage[missileCurrentFrame].set_alpha(255)
-            submarine1.missile.calculateVelocityX()
             submarine1.missile.calculevelocityY()
             submarine1.missile.calculePosition()
+            if whileCounter > 350:
+                submarine1.missile.calculateVelocityX()
+                submarine1.missile.calculevelocityY()
+                submarine1.missile.calculePosition()
+            else:
+                submarine1.missile.calculePositionY()
+                submarine1.missile.calculePositionX()
+            whileCounter += 1
+
         elif submarine1.missile.isMissileCrashed():
             if missileCurrentFrame == 12:
                 missileImage[missileCurrentFrame].set_alpha(0)
@@ -293,7 +305,9 @@ def main():
                 missileCurrentFrame = int(time.time() * 8) % len(originalMissileImage)
                 submarine1.missile.actualVelocityY = 0
                 submarine1.missile.actualVelocityX = 0
+                whileCounter = 0
         else:
+            whileCounter = 0
             missileImage[missileCurrentFrame].set_alpha(0)
             submarine1.missile.actualVelocityY = 0
             submarine1.missile.actualVelocityX = 0
