@@ -19,14 +19,13 @@ submarineRightLimit = 900
 gravity = 9.8
 density = 1000
 volume = 1
-ts = 0.05
+ts = 0.01
 constantB = 250
 
 pushingForce = - (density * gravity * volume)
 
 
 # isMissileEnabled = False
-
 
 
 class Engine:
@@ -46,8 +45,6 @@ class Engine:
     def stop(self):
         self.strenght = 0
 
-
-
     def moveLeftOrRight(self, horizontalDirection):
         self.horizontalDirection = horizontalDirection
         if horizontalDirection == 'right':
@@ -62,12 +59,12 @@ class Engine:
     def getStrenghtDirection(self):
         return self.moveLeftOrRight(self.horizontalDirection)
 
-
     def getHorsepower(self):
         return self.horsepower
 
     def getStrengt(self):
         return self.strenght
+
 
 class Reservoir:
 
@@ -100,10 +97,11 @@ class Reservoir:
         elif fluitsoPump == 'brake':
             self.actualLevel = self.maxCapactity / 2
 
+
 class Misille:
     def __init__(self, power, actualPos):
         self.power = power
-        self.mass = 0.5
+        self.mass = 0.1
         self.volume = 0.1
         self.strenght = 0
         self.pushingForceX = self.power * cos(0.785398)
@@ -112,14 +110,17 @@ class Misille:
         self.actualPosY = actualPos[1]
         self.actualVelocityY = 0
         self.actualVelocityX = 0
+        self.constantC = constantB / 35
 
     def calculateVelocityX(self):
-        #self.actualVelocityX = (self.pushingForceX - constantB * self.actualVelocityX) * ts * self.strenght
-        self.actualVelocityX = self.strenght * (self.pushingForceX - self.actualVelocityX) * ts
+        # self.actualVelocityX = 1
+        self.actualVelocityX = self.strenght * (
+                    self.pushingForceX - self.strenght * self.constantC * self.actualVelocityX) * ts / self.mass
 
     def calculevelocityY(self):
-        #self.actualVelocityY = (self.pushingForceY - constantB * self.actualVelocityY) * ts
-        self.actualVelocityY = 1
+        # self.actualVelocityY = 1
+        self.actualVelocityY = (
+                                           gravity * self.mass + self.pushingForceY - self.constantC * self.actualVelocityX) * ts / self.mass
 
     def calculePosition(self):
         self.calculePositionX()
@@ -130,10 +131,10 @@ class Misille:
 
     def calculePositionX(self):
         self.actualPosX += self.actualVelocityX
-        """if self.actualPosX >= submarineRightLimit:
+        if self.actualPosX >= submarineRightLimit:
             self.actualPosX = submarineLeftLimit
         elif self.actualPosX <= submarineLeftLimit:
-            self.actualPosX = submarineRightLimit"""
+            self.actualPosX = submarineRightLimit
 
     def setCoords(self, coords):
         self.actualPosX = coords[0]
@@ -142,6 +143,7 @@ class Misille:
     def isMissileCrashed(self):
         if self.actualPosY > SubmarineImagePosYLim:
             return True
+
 
 class Submarine:
 
@@ -216,6 +218,7 @@ class Submarine:
         self.missile.setCoords(self.getCoords())
         self.missile.strenght = self.engine.strenght
 
+
 def main():
     isMissileEnabled = False
     transparency = 0
@@ -229,12 +232,13 @@ def main():
     screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pg.display.set_caption("Submarine game")
 
-    #BACKGROUND
+    # BACKGROUND
     background_image = pg.image.load("mar.jpg").convert()
     # SUBMARINE
     submarine_sprites_folder = os.path.join("sprites", "submarine3")
     original_submarine_image = [
-        pg.transform.scale(pg.image.load(os.path.join(submarine_sprites_folder, f"sub{i}.png")).convert_alpha(), (126, 98)) for i
+        pg.transform.scale(pg.image.load(os.path.join(submarine_sprites_folder, f"sub{i}.png")).convert_alpha(),
+                           (126, 98)) for i
         in range(12)]
     inverted_submarine_image = []
     for sprite in original_submarine_image:
@@ -244,16 +248,22 @@ def main():
     currentDirection = "right"
     # MISSILE
     missile_sprites_folder = os.path.join("sprites", "boom")
-    missileImage = [
-        pg.transform.scale(pg.image.load(os.path.join(missile_sprites_folder, f"b{i}.png")).convert_alpha(), (100,100)) for i
+    originalMissileImage = [
+        pg.transform.scale(pg.image.load(os.path.join(missile_sprites_folder, f"b{i}.png")).convert_alpha(), (100, 100))
+        for i
         in range(1, 13)]
-    missileImage.insert(0, pg.transform.scale(pg.image.load(os.path.join(missile_sprites_folder, f"b0.png")), (50, 50)))
-    isBoom = False
+    originalMissileImage.insert(0, pg.transform.scale(pg.image.load(os.path.join(missile_sprites_folder, f"b0.png")),
+                                                      (50, 50)))
+    invertedMissileImage = []
+    for sprite in originalMissileImage:
+        inverted_sprite = pg.transform.flip(sprite, True, False)
+        invertedMissileImage.append(inverted_sprite)
     missileCurrentFrame = 0
-    #misileImage = pg.image.load("torpedo.png").convert_alpha()
+    isBoom = False
+    # misileImage = pg.image.load("torpedo.png").convert_alpha()
 
     screen.blit(inverted_submarine_image[submarineCurrentFrame], (submarine1.posX, SubmarineImagePosYInit))
-    screen.blit(missileImage[0], (200, 200))
+    screen.blit(originalMissileImage[0], (200, 200))
     screen.blit(background_image, (0, 0))
     pg.display.flip()
 
@@ -264,8 +274,10 @@ def main():
 
         if currentDirection == "left":
             submarine_image = original_submarine_image
+            missileImage = invertedMissileImage
         else:
             submarine_image = inverted_submarine_image
+            missileImage = originalMissileImage
 
         isBoom = submarine1.missile.isMissileCrashed()
         if isMissileEnabled and not isBoom:
@@ -278,7 +290,7 @@ def main():
             if missileCurrentFrame == 12:
                 missileImage[missileCurrentFrame].set_alpha(0)
             else:
-                missileCurrentFrame = int(time.time() * 8) % len(missileImage)
+                missileCurrentFrame = int(time.time() * 8) % len(originalMissileImage)
                 submarine1.missile.actualVelocityY = 0
                 submarine1.missile.actualVelocityX = 0
         else:
