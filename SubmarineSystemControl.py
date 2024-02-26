@@ -1,3 +1,7 @@
+import os
+import time
+from math import sin, cos
+
 import pygame as pg
 from pygame.locals import *
 from math import sqrt
@@ -10,7 +14,7 @@ SubmarineImagePosYLim = 500
 SubmarineImagePosYInit = seaLevel
 
 submarineLeftLimit = 0
-submarineRightLimit = 700
+submarineRightLimit = 900
 
 gravity = 9.8
 density = 1000
@@ -21,7 +25,14 @@ constantB = 250
 pushingForce = - (density * gravity * volume)
 
 
+# isMissileEnabled = False
+
+
+
 class Engine:
+    strenght = 0
+    horsepower = 0
+
     def __init__(self, horsepower, horizontalDirection):
         self.strenght = 0  # [-1, 0, 1]
         self.horsepower = horsepower
@@ -34,6 +45,8 @@ class Engine:
 
     def stop(self):
         self.strenght = 0
+
+
 
     def moveLeftOrRight(self, horizontalDirection):
         self.horizontalDirection = horizontalDirection
@@ -50,6 +63,12 @@ class Engine:
         return self.moveLeftOrRight(self.horizontalDirection)
 
 
+    def getHorsepower(self):
+        return self.horsepower
+
+    def getStrengt(self):
+        return self.strenght
+
 class Reservoir:
 
     def __init__(self, actualLevel, valveFlow, maxCapactity, fluitsoPump):
@@ -57,6 +76,7 @@ class Reservoir:
         self.valveFlow = valveFlow
         self.maxCapactity = maxCapactity
         self.fluitsoPump = fluitsoPump
+        # self.actual_level = actual_level
 
     def createDefault(self):
         self.actualLevel = 0
@@ -77,12 +97,51 @@ class Reservoir:
                 self.actualLevel = self.actualLevel + self.valveFlow
             else:
                 self.actualLevel = self.maxCapactity
-        elif fluitsoPump == 'fullAir':
-            self.actualLevel = 0
-        elif fluitsoPump == 'fullWater':
-            self.fluitsoPump = self.maxCapactity
+        elif fluitsoPump == 'brake':
+            self.actualLevel = self.maxCapactity / 2
 
+class Misille:
+    def __init__(self, power, actualPos):
+        self.power = power
+        self.mass = 0.5
+        self.volume = 0.1
+        self.strenght = 0
+        self.pushingForceX = self.power * cos(0.785398)
+        self.pushingForceY = self.power * sin(0.785398)
+        self.actualPosX = actualPos[0]
+        self.actualPosY = actualPos[1]
+        self.actualVelocityY = 0
+        self.actualVelocityX = 0
 
+    def calculateVelocityX(self):
+        #self.actualVelocityX = (self.pushingForceX - constantB * self.actualVelocityX) * ts * self.strenght
+        self.actualVelocityX = self.strenght * (self.pushingForceX - self.actualVelocityX) * ts
+
+    def calculevelocityY(self):
+        #self.actualVelocityY = (self.pushingForceY - constantB * self.actualVelocityY) * ts
+        self.actualVelocityY = 1
+
+    def calculePosition(self):
+        self.calculePositionX()
+        self.calculePositionY()
+
+    def calculePositionY(self):
+        self.actualPosY += self.actualVelocityY
+
+    def calculePositionX(self):
+        self.actualPosX += self.actualVelocityX
+        """if self.actualPosX >= submarineRightLimit:
+            self.actualPosX = submarineLeftLimit
+        elif self.actualPosX <= submarineLeftLimit:
+            self.actualPosX = submarineRightLimit"""
+
+    def setCoords(self, coords):
+        self.actualPosX = coords[0]
+        self.actualPosY = coords[1]
+
+    def isMissileCrashed(self):
+        if self.actualPosY > SubmarineImagePosYLim:
+            return True
 
 class Submarine:
 
@@ -94,6 +153,7 @@ class Submarine:
         self.actualVelocityX = actualVelocityX
         self.tank = Reservoir.createDefault(self)
         self.engine = Engine.createDefault(self)
+        self.missile = Misille(10, [posX, posY])
 
     def createTank(self, tank):
         self.tank = tank
@@ -111,7 +171,7 @@ class Submarine:
 
     def calculateVelocityX(self):
         self.actualVelocityX = ts * ((-constantB * self.actualVelocityX / self.mass) + (
-                (self.engine.horsepower * self.engine.getStrenghtDirection()) / self.mass)) + self.actualVelocityX
+                (self.engine.getHorsepower() * self.engine.getStrenghtDirection()) / self.mass)) + self.actualVelocityX
 
     def calculatePosition(self):
         Submarine.calculatePositionX(self)
@@ -126,11 +186,11 @@ class Submarine:
 
     def calculatePositionY(self):
         self.posY = self.posY + self.actualVelocityY
+
         if self.posY > SubmarineImagePosYLim:
             self.posY = SubmarineImagePosYLim
         elif self.posY < seaLevel:
             self.posY = seaLevel
-            # self.tank.pumpingAirWater('air')
 
     def goToCursorCoords(self, coordX, coordY):
         if self.posX < coordX:
@@ -152,21 +212,48 @@ class Submarine:
     def getCoords(self):
         return [self.posX, self.posY]
 
+    def shootMissile(self):
+        self.missile.setCoords(self.getCoords())
+        self.missile.strenght = self.engine.strenght
+
 def main():
+    isMissileEnabled = False
+    transparency = 0
+
     pg.init()
     submarine1 = Submarine(2, 2, 0, 150, 50)
+    submarine1.shootMissile()
     submarine1.createTank(Reservoir(1005, 2, 50000, 'air'))
     submarine1.createEngine(Engine(20, 'None'))
 
     screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-
     pg.display.set_caption("Submarine game")
 
+    #BACKGROUND
     background_image = pg.image.load("mar.jpg").convert()
-    submarine_image = pg.image.load("sub.jpg").convert_alpha()
-    #torpedo_image = pg.image.load("torpedo.png").convert_alpha()
+    # SUBMARINE
+    submarine_sprites_folder = os.path.join("sprites", "submarine3")
+    original_submarine_image = [
+        pg.transform.scale(pg.image.load(os.path.join(submarine_sprites_folder, f"sub{i}.png")).convert_alpha(), (126, 98)) for i
+        in range(12)]
+    inverted_submarine_image = []
+    for sprite in original_submarine_image:
+        inverted_sprite = pg.transform.flip(sprite, True, False)
+        inverted_submarine_image.append(inverted_sprite)
+    submarineCurrentFrame = 0
+    currentDirection = "right"
+    # MISSILE
+    missile_sprites_folder = os.path.join("sprites", "boom")
+    missileImage = [
+        pg.transform.scale(pg.image.load(os.path.join(missile_sprites_folder, f"b{i}.png")).convert_alpha(), (100,100)) for i
+        in range(1, 13)]
+    missileImage.insert(0, pg.transform.scale(pg.image.load(os.path.join(missile_sprites_folder, f"b0.png")), (50, 50)))
+    isBoom = False
+    missileCurrentFrame = 0
+    #misileImage = pg.image.load("torpedo.png").convert_alpha()
 
-    screen.blit(submarine_image, (submarine1.posX, SubmarineImagePosYInit))
+    screen.blit(inverted_submarine_image[submarineCurrentFrame], (submarine1.posX, SubmarineImagePosYInit))
+    screen.blit(missileImage[0], (200, 200))
     screen.blit(background_image, (0, 0))
     pg.display.flip()
 
@@ -174,11 +261,35 @@ def main():
         submarine1.calculateVelocityY()
         submarine1.calculateVelocityX()
         submarine1.calculatePosition()
-        # print(submarine1.actualVelocityX)
-        # print(pg.mouse.)
+
+        if currentDirection == "left":
+            submarine_image = original_submarine_image
+        else:
+            submarine_image = inverted_submarine_image
+
+        isBoom = submarine1.missile.isMissileCrashed()
+        if isMissileEnabled and not isBoom:
+            missileCurrentFrame = 0
+            missileImage[missileCurrentFrame].set_alpha(255)
+            submarine1.missile.calculateVelocityX()
+            submarine1.missile.calculevelocityY()
+            submarine1.missile.calculePosition()
+        elif submarine1.missile.isMissileCrashed():
+            if missileCurrentFrame == 12:
+                missileImage[missileCurrentFrame].set_alpha(0)
+            else:
+                missileCurrentFrame = int(time.time() * 8) % len(missileImage)
+                submarine1.missile.actualVelocityY = 0
+                submarine1.missile.actualVelocityX = 0
+        else:
+            missileImage[missileCurrentFrame].set_alpha(0)
+            submarine1.missile.actualVelocityY = 0
+            submarine1.missile.actualVelocityX = 0
 
         screen.blit(background_image, (0, 0))
-        screen.blit(submarine_image, (submarine1.posX, submarine1.posY))
+        screen.blit(submarine_image[submarineCurrentFrame], (submarine1.posX, submarine1.posY))
+        submarineCurrentFrame = int(time.time() * 30) % len(submarine_image)
+        screen.blit(missileImage[missileCurrentFrame], (submarine1.missile.actualPosX, submarine1.missile.actualPosY))
 
         pg.display.flip()
 
@@ -187,41 +298,29 @@ def main():
                 sys.exit()
 
             elif event.type == pg.KEYDOWN:
-                # Movimiento vertical
                 if event.key == K_UP:
                     submarine1.tank.pumpingAirWater('air')
+
                 elif event.key == K_DOWN:
                     submarine1.tank.pumpingAirWater('water')
 
-                # Movimiento horizontal
                 if event.key == K_LEFT:
+                    currentDirection = "left"
                     submarine1.engine.strength = 0
-                    # submarine1.calculateVelocityX()
                     submarine1.engine.moveLeftOrRight('left')
+
                 elif event.key == K_RIGHT:
-                    # submarine1.calculateVelocityX()
+                    currentDirection = "right"
                     submarine1.engine.strength = 0
                     submarine1.engine.moveLeftOrRight("right")
-                # Movimiento estático
-                elif event.key == K_SPACE:
+
+                elif event.key == K_SPACE:  # Movimiento estático
                     submarine1.engine.moveLeftOrRight('brake')
+
                 elif event.key == K_x:
-                    submarine1.actualVelocityY = 0
-            # Movimiento teledirigido
-            if event.type == pg.MOUSEBUTTONDOWN:
-                coords = pg.mouse.get_pos()
-                submarineCoords = submarine1.getCoords()
-                submarine1.actualVelocityY = 0
-                while (int(sqrt(coords[0])) != int(sqrt(submarineCoords[0]))) or (
-                        int(sqrt(coords[1])) != int(sqrt(submarineCoords[1]))):
-                    submarineCoords = submarine1.goToCursorCoords(coords[0], coords[1])
-
-                    screen.blit(background_image, (0, 0))
-                    screen.blit(submarine_image, (submarine1.posX, submarine1.posY))
-
-                    pg.display.flip()
-
-                # $pygame.mouse.get_pos()
+                    isMissileEnabled = True
+                    submarine1.shootMissile()
+                    isBoom = False
 
         submarine1.calculateMass()
 
