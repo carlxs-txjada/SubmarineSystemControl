@@ -289,10 +289,12 @@ def main():
             missileImage[missileCurrentFrame].set_alpha(255)
             submarine1.missile.calculevelocityY()
             submarine1.missile.calculePosition()
-            if whileCounter > 350:
+            submarine1.missile.actualPosX  += submarine1.missile.strenght * 0.08
+            if whileCounter > 500:
                 submarine1.missile.calculateVelocityX()
                 submarine1.missile.calculevelocityY()
                 submarine1.missile.calculePosition()
+                submarine1.missile.pushingForceY = submarine1.missile.power * sin(0) * (density * gravity * submarine1.missile.volume)
             else:
                 submarine1.missile.calculePositionY()
                 submarine1.missile.calculePositionX()
