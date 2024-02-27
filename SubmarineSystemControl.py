@@ -307,9 +307,7 @@ def main():
                 missileCurrentFrame = int(time.time() * 8) % len(originalMissileImage)
                 submarine1.missile.actualVelocityY = 0
                 submarine1.missile.actualVelocityX = 0
-                whileCounter = 0
         else:
-            whileCounter = 0
             missileImage[missileCurrentFrame].set_alpha(0)
             submarine1.missile.actualVelocityY = 0
             submarine1.missile.actualVelocityX = 0
@@ -347,6 +345,7 @@ def main():
 
                 elif event.key == K_x:
                     isMissileEnabled = True
+                    whileCounter = 0
                     submarine1.shootMissile()
                     isBoom = False
 
