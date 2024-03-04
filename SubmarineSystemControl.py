@@ -1,10 +1,10 @@
 import os
 import time
 from math import sin, cos
-
 import pygame as pg
 from pygame.locals import *
 import sys
+
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
@@ -25,6 +25,23 @@ pushingForce = - (density * gravity * volume)
 
 
 # isMissileEnabled = False
+class RemoteControl:
+    isActived = False
+    cursorX = 0
+    cursorY = 0
+
+    def setCursorCoords(self, coordX, coordY):
+        self.cursorX = coordX
+        self.cursorY = coordY
+
+    def startRemoteControl(self, coordX, coordY):
+        self.isActived = True
+        self.setCursorCoords(coordX, coordY)
+
+    def stopRemoteControl(self):
+        self.isActived = False
+
+
 class Engine:
     strenght = 0
     horsepower = 0
@@ -114,47 +131,51 @@ class Misille:
 
 
 class Reservoir:
-    def __init__(self, actualLevel, valveFlow, maxCapactity, fluitsoPump):
+    def __init__(self, actualLevel, valveFlow, maxCapactity, fluitsToPump):
         self.actualLevel = actualLevel
         self.valveFlow = valveFlow
         self.maxCapactity = maxCapactity
-        self.fluitsoPump = fluitsoPump
-        # self.actual_level = actual_level
+        self.fluisToPump = fluitsToPump
+        self.actual_level = actualLevel
 
     def createDefault(self):
         self.actualLevel = 0
         self.valveFlow = 0
         self.maxCapactity = 0
-        self.fluitsoPump = 0
+        self.fluitsToPump = 0
 
         return Reservoir
 
-    def pumpingAirWater(self, fluitsoPump):
-        if fluitsoPump == 'air':
+    def pumpingAirWater(self, fluitsToPump):
+        if fluitsToPump == 'air':
             if self.actualLevel > 0:
                 self.actualLevel = self.actualLevel - self.valveFlow
             else:
                 self.actualLevel = 0
-        elif fluitsoPump == 'water':
+        elif fluitsToPump == 'water':
             if self.actualLevel < self.maxCapactity:
                 self.actualLevel = self.actualLevel + self.valveFlow
             else:
                 self.actualLevel = self.maxCapactity
-        elif fluitsoPump == 'brake':
-            self.actualLevel = self.maxCapactity / 2
+        elif fluitsToPump == 'brake':
+            self.actualLevel = 1000
+        elif fluitsToPump == 'up':
+            self.actualLevel = 998
+        elif fluitsToPump == 'down':
+            self.actualLevel = 1002
 
 
 class Submarine:
-
     def __init__(self, mass, actualVelocityY, actualVelocityX, posY, posX):
         self.posY = posY
         self.posX = posX
         self.mass = mass
         self.actualVelocityY = actualVelocityY
         self.actualVelocityX = actualVelocityX
-        self.tank = Reservoir.createDefault(self)
+        self.tank = Reservoir(0, 2, 5000, 'air')
         self.engine = Engine.createDefault(self)
         self.missile = Misille(10, [posX, posY])
+        self.remoteControl = RemoteControl()
 
     def createTank(self, tank):
         self.tank = tank
@@ -202,9 +223,9 @@ class Submarine:
 
         for _ in range(19):
             if self.posY > coordY:
-                self.tank.pumpingAirWater('fullWater')
+                self.tank.pumpingAirWater('Water')
             else:
-                self.tank.pumpingAirWater('fullAir')
+                self.tank.pumpingAirWater('Air')
             self.calculateVelocityY()
             self.calculatePosition()
 
@@ -223,9 +244,9 @@ def main():
     transparency = 0
 
     pg.init()
-    submarine1 = Submarine(2, 2, 0, 150, 50)
+    submarine1 = Submarine(2, 0, 0, 150, 50)
     submarine1.shootMissile()
-    submarine1.createTank(Reservoir(1005, 2, 50000, 'air'))
+    submarine1.createTank(Reservoir(1000, 2, 5250, 'air'))
     submarine1.createEngine(Engine(20, 'None'))
 
     screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -259,7 +280,6 @@ def main():
         invertedMissileImage.append(inverted_sprite)
     missileCurrentFrame = 0
     isBoom = False
-    # misileImage = pg.image.load("torpedo.png").convert_alpha()
 
     screen.blit(inverted_submarine_image[submarineCurrentFrame], (submarine1.posX, SubmarineImagePosYInit))
     screen.blit(originalMissileImage[0], (200, 200))
@@ -267,10 +287,23 @@ def main():
     pg.display.flip()
     whileCounter = 0
 
+    isOnRemoteControl = False
+
     while True:
         submarine1.calculateVelocityY()
         submarine1.calculateVelocityX()
         submarine1.calculatePosition()
+
+        if isOnRemoteControl:
+            if abs(submarine1.remoteControl.cursorY - submarine1.posY == 0):
+                isOnRemoteControl = False
+                submarine1.remoteControl.stopRemoteControl()
+            elif abs(submarine1.remoteControl.cursorY - submarine1.posY) < 5:
+                submarine1.tank.pumpingAirWater('breake')
+            elif submarine1.remoteControl.cursorY > submarine1.posY:
+                submarine1.tank.pumpingAirWater('down')
+            elif submarine1.remoteControl.cursorY < submarine1.posY:
+                submarine1.tank.pumpingAirWater('up')
 
         if currentDirection == "left":
             submarine_image = original_submarine_image
@@ -339,14 +372,23 @@ def main():
                     submarine1.engine.strength = 0
                     submarine1.engine.moveLeftOrRight("right")
 
-                elif event.key == K_SPACE:  # Movimiento estático
+                elif event.key == K_SPACE:  # Movimiento estático x
                     submarine1.engine.moveLeftOrRight('brake')
+
+                elif event.key == K_p:  # Movimiento estático y
+                    submarine1.calculateVelocityY()
 
                 elif event.key == K_x:
                     isMissileEnabled = True
                     whileCounter = 0
                     submarine1.shootMissile()
                     isBoom = False
+
+            elif event.type == pg.MOUSEBUTTONDOWN:
+                coords = pg.mouse.get_pos()
+                submarine1.remoteControl.startRemoteControl(coords[0], coords[1])
+                isOnRemoteControl = True
+
 
         submarine1.calculateMass()
 
