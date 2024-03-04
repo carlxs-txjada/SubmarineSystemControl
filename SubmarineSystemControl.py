@@ -4,7 +4,6 @@ from math import sin, cos
 
 import pygame as pg
 from pygame.locals import *
-from math import sqrt
 import sys
 
 SCREEN_WIDTH = 1000
@@ -26,8 +25,6 @@ pushingForce = - (density * gravity * volume)
 
 
 # isMissileEnabled = False
-
-
 class Engine:
     strenght = 0
     horsepower = 0
@@ -66,8 +63,57 @@ class Engine:
         return self.strenght
 
 
-class Reservoir:
+class Misille:
+    def __init__(self, power, actualPos):
+        self.power = power
+        self.mass = 0.1
+        self.volume = 0.1
+        self.strenght = 0
+        self.pushingForceX = self.power * cos(0)
+        self.pushingForceY = self.power * sin(0) * (density * gravity * self.volume)
+        self.actualPosX = actualPos[0]
+        self.actualPosY = actualPos[1]
+        self.actualVelocityY = 0
+        self.actualVelocityX = 0
+        self.constantC = constantB / 15
 
+    def calculateVelocityX(self):
+        # self.actualVelocityX = 1
+        self.actualVelocityX = self.strenght * ((
+                    self.pushingForceX - self.constantC * abs(self.actualVelocityX)) * ts / self.mass +
+                                                abs(self.actualVelocityX))
+
+    def calculevelocityY(self):
+        # self.actualVelocityY = 1
+        self.actualVelocityY = ((gravity * self.mass + self.pushingForceY - self.constantC * abs(self.actualVelocityY))
+                                * ts / self.mass + self.actualVelocityY)
+
+    def calculePosition(self):
+        self.calculePositionX()
+        self.calculePositionY()
+
+    def calculePositionY(self):
+        self.actualPosY += self.actualVelocityY
+
+    def calculePositionX(self):
+        self.actualPosX += self.actualVelocityX
+        """if self.actualPosX >= submarineRightLimit:
+            self.actualPosX = submarineLeftLimit
+        elif self.actualPosX <= submarineLeftLimit:
+            self.actualPosX = submarineRightLimit"""
+
+    def setCoords(self, coords):
+        self.actualPosX = coords[0] + 50
+        self.actualPosY = coords[1] + 50
+
+    def isMissileCrashed(self):
+        if self.actualPosY > SubmarineImagePosYLim:
+            return True
+        elif self.actualPosX < submarineLeftLimit or self.actualPosX > submarineRightLimit:
+            return True
+
+
+class Reservoir:
     def __init__(self, actualLevel, valveFlow, maxCapactity, fluitsoPump):
         self.actualLevel = actualLevel
         self.valveFlow = valveFlow
@@ -98,55 +144,6 @@ class Reservoir:
             self.actualLevel = self.maxCapactity / 2
 
 
-class Misille:
-    def __init__(self, power, actualPos):
-        self.power = power
-        self.mass = 0.1
-        self.volume = 0.1
-        self.strenght = 0
-        self.pushingForceX = self.power * cos(0)
-        self.pushingForceY = self.power * sin(0) * (density * gravity * self.volume)
-        self.actualPosX = actualPos[0]
-        self.actualPosY = actualPos[1]
-        self.actualVelocityY = 0
-        self.actualVelocityX = 0
-        self.constantC = constantB / 15
-
-    def calculateVelocityX(self):
-        # self.actualVelocityX = 1
-        self.actualVelocityX = self.strenght * ((
-                    self.pushingForceX - self.constantC * abs(self.actualVelocityX)) * ts / self.mass + abs(self.actualVelocityX))
-
-    def calculevelocityY(self):
-        # self.actualVelocityY = 1
-        self.actualVelocityY = (
-                        gravity * self.mass + self.pushingForceY - self.constantC * abs(self.actualVelocityY)) * ts / self.mass + self.actualVelocityY
-
-    def calculePosition(self):
-        self.calculePositionX()
-        self.calculePositionY()
-
-    def calculePositionY(self):
-        self.actualPosY += self.actualVelocityY
-
-    def calculePositionX(self):
-        self.actualPosX += self.actualVelocityX
-        """if self.actualPosX >= submarineRightLimit:
-            self.actualPosX = submarineLeftLimit
-        elif self.actualPosX <= submarineLeftLimit:
-            self.actualPosX = submarineRightLimit"""
-
-    def setCoords(self, coords):
-        self.actualPosX = coords[0] + 50
-        self.actualPosY = coords[1] + 50
-
-    def isMissileCrashed(self):
-        if self.actualPosY > SubmarineImagePosYLim:
-            return True
-        elif self.actualPosX < submarineLeftLimit or self.actualPosX > submarineRightLimit:
-            return True
-
-
 class Submarine:
 
     def __init__(self, mass, actualVelocityY, actualVelocityX, posY, posX):
@@ -171,7 +168,7 @@ class Submarine:
     def calculateVelocityY(self):
         self.actualVelocityY = ts * (
                 (pushingForce / self.mass) + gravity - (
-                (constantB * self.actualVelocityY) / self.mass)) + self.actualVelocityY
+                    (constantB * self.actualVelocityY) / self.mass)) + self.actualVelocityY
 
     def calculateVelocityX(self):
         self.actualVelocityX = ts * ((-constantB * self.actualVelocityX / self.mass) + (
@@ -283,18 +280,20 @@ def main():
             missileImage = originalMissileImage
 
         isBoom = submarine1.missile.isMissileCrashed()
-        #pg.draw.circle(background_image, (255, 0, 0), (submarine1.missile.actualPosX, submarine1.missile.actualPosY), 1)
+        # pg.draw.circle(background_image, (255, 0, 0), (submarine1.missile.actualPosX,
+        # submarine1.missile.actualPosY), 1)
         if isMissileEnabled and not isBoom:
             missileCurrentFrame = 0
             missileImage[missileCurrentFrame].set_alpha(255)
             submarine1.missile.calculevelocityY()
             submarine1.missile.calculePosition()
-            submarine1.missile.actualPosX  += submarine1.missile.strenght * 0.08
+            submarine1.missile.actualPosX += submarine1.missile.strenght * 0.08
             if whileCounter > 500:
                 submarine1.missile.calculateVelocityX()
                 submarine1.missile.calculevelocityY()
                 submarine1.missile.calculePosition()
-                submarine1.missile.pushingForceY = submarine1.missile.power * sin(0) * (density * gravity * submarine1.missile.volume)
+                submarine1.missile.pushingForceY = submarine1.missile.power * sin(0) * (density * gravity *
+                                                                                        submarine1.missile.volume)
             else:
                 submarine1.missile.calculePositionY()
                 submarine1.missile.calculePositionX()
