@@ -114,10 +114,6 @@ class Misille:
 
     def calculePositionX(self):
         self.actualPosX += self.actualVelocityX
-        """if self.actualPosX >= submarineRightLimit:
-            self.actualPosX = submarineLeftLimit
-        elif self.actualPosX <= submarineLeftLimit:
-            self.actualPosX = submarineRightLimit"""
 
     def setCoords(self, coords):
         self.actualPosX = coords[0] + 50
@@ -214,23 +210,6 @@ class Submarine:
         elif self.posY < seaLevel:
             self.posY = seaLevel
 
-    def goToCursorCoords(self, coordX, coordY):
-        if self.posX < coordX:
-            self.engine.moveLeftOrRight('right')
-        else:
-            self.engine.moveLeftOrRight('left')
-        self.calculateVelocityX()
-
-        for _ in range(19):
-            if self.posY > coordY:
-                self.tank.pumpingAirWater('Water')
-            else:
-                self.tank.pumpingAirWater('Air')
-            self.calculateVelocityY()
-            self.calculatePosition()
-
-        return self.getCoords()
-
     def getCoords(self):
         return [self.posX, self.posY]
 
@@ -295,10 +274,16 @@ def main():
         submarine1.calculatePosition()
 
         if isOnRemoteControl:
-            if abs(submarine1.remoteControl.cursorY - submarine1.posY == 0):
+            if submarine1.remoteControl.cursorX - 160 > submarine1.posX:
+                submarine1.engine.moveLeftOrRight('right')
+                submarine1.engine.moveLeftOrRight('brake')
+            elif submarine1.remoteControl.cursorX - 160 > submarine1.posX:
+                submarine1.engine.moveLeftOrRight('left')
+                submarine1.engine.moveLeftOrRight('brake')
+            if abs(submarine1.remoteControl.cursorY - submarine1.posY) == 0:
                 isOnRemoteControl = False
                 submarine1.remoteControl.stopRemoteControl()
-            elif abs(submarine1.remoteControl.cursorY - submarine1.posY) < 5:
+            elif abs(submarine1.remoteControl.cursorY - submarine1.posY) < 15:
                 submarine1.tank.pumpingAirWater('breake')
             elif submarine1.remoteControl.cursorY > submarine1.posY:
                 submarine1.tank.pumpingAirWater('down')
@@ -325,8 +310,8 @@ def main():
                 submarine1.missile.calculateVelocityX()
                 submarine1.missile.calculevelocityY()
                 submarine1.missile.calculePosition()
-                submarine1.missile.pushingForceY = submarine1.missile.power * sin(0) * (density * gravity *
-                                                                                        submarine1.missile.volume)
+                submarine1.missile.pushingForceY = (submarine1.missile.power *
+                                                    sin(0) * (density * gravity * submarine1.missile.volume))
             else:
                 submarine1.missile.calculePositionY()
                 submarine1.missile.calculePositionX()
@@ -375,20 +360,16 @@ def main():
                 elif event.key == K_SPACE:  # Movimiento estático x
                     submarine1.engine.moveLeftOrRight('brake')
 
-                elif event.key == K_p:  # Movimiento estático y
-                    submarine1.calculateVelocityY()
-
                 elif event.key == K_x:
                     isMissileEnabled = True
                     whileCounter = 0
                     submarine1.shootMissile()
                     isBoom = False
 
-            elif event.type == pg.MOUSEBUTTONDOWN:
+            if event.type == pg.MOUSEBUTTONDOWN:
                 coords = pg.mouse.get_pos()
                 submarine1.remoteControl.startRemoteControl(coords[0], coords[1])
                 isOnRemoteControl = True
-
 
         submarine1.calculateMass()
 
