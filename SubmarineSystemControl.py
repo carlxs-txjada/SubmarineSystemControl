@@ -4,7 +4,8 @@ from math import sin, cos
 import pygame as pg
 from pygame.locals import *
 import sys
-
+import matplotlib.pyplot as plt
+import numpy as np
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 700
@@ -24,7 +25,6 @@ constantB = 250
 pushingForce = - (density * gravity * volume)
 
 
-# isMissileEnabled = False
 class RemoteControl:
     isActived = False
     cursorX = 0
@@ -95,13 +95,11 @@ class Misille:
         self.constantC = constantB / 15
 
     def calculateVelocityX(self):
-        # self.actualVelocityX = 1
         self.actualVelocityX = self.strenght * ((
                     self.pushingForceX - self.constantC * abs(self.actualVelocityX)) * ts / self.mass +
                                                 abs(self.actualVelocityX))
 
     def calculevelocityY(self):
-        # self.actualVelocityY = 1
         self.actualVelocityY = ((gravity * self.mass + self.pushingForceY - self.constantC * abs(self.actualVelocityY))
                                 * ts / self.mass + self.actualVelocityY)
 
@@ -204,7 +202,6 @@ class Submarine:
 
     def calculatePositionY(self):
         self.posY = self.posY + self.actualVelocityY
-
         if self.posY > SubmarineImagePosYLim:
             self.posY = SubmarineImagePosYLim
         elif self.posY < seaLevel:
@@ -220,7 +217,6 @@ class Submarine:
 
 def main():
     isMissileEnabled = False
-    transparency = 0
 
     pg.init()
     submarine1 = Submarine(2, 0, 0, 150, 50)
@@ -267,6 +263,8 @@ def main():
     whileCounter = 0
 
     isOnRemoteControl = False
+
+    submarinePotitionToPrint = []
 
     while True:
         submarine1.calculateVelocityY()
@@ -334,10 +332,17 @@ def main():
         submarineCurrentFrame = int(time.time() * 30) % len(submarine_image)
         screen.blit(missileImage[missileCurrentFrame], (submarine1.missile.actualPosX, submarine1.missile.actualPosY))
 
+        submarinePotitionToPrint.append(submarine1.posY)
+
         pg.display.flip()
 
         for event in pg.event.get():
             if event.type == pg.QUIT:
+                plt.plot(range(len(submarinePotitionToPrint)), submarinePotitionToPrint)
+                plt.xlabel('T')
+                plt.ylabel('Y')
+                plt.title('y vs t')
+                plt.show()
                 sys.exit()
 
             elif event.type == pg.KEYDOWN:
